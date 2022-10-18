@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
@@ -37,14 +38,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
 late List<News>newsList=[];
 bool loading=true;
+StreamController<List> streamController = StreamController();
+  late Future<List> _futureValue;
+
+
 
  @override
   void initState() {
     loading=false;
-    callNewsDetailsFrom();
+    // stream Bulder
+   _getDataFromAPI();
+
+   //futurebuilder
+   _futureValue=getFuture_Value() ;
     super.initState();
   }
 
+@override
+  void dispose() {
+    super.dispose();
+    streamController.close();
+  }
 
   @override
   Widget build(BuildContext context) {   
@@ -56,46 +70,62 @@ bool loading=true;
       backgroundColor: Colors.transparent,
       ),
       body:Container(
+        child: 
+
+        // future builder code`
+        FutureBuilder(builder: (context, snapshot) {
+
+          if(snapshot.hasError){
+            return Scaffold(body: Center(child: Text("ERror")),);
+          }
+
+          if(snapshot.connectionState==ConnectionState.waiting){
+
+             return Scaffold(body: 
+          Center(child: CircularProgressIndicator()),);
+          }
+
+
+          return _swiper();
+        },
+        initialData: "load...",
+        future: _futureValue,)
+
+
+//stream builder code
+
+
+
+      //   StreamBuilder(
+      //     initialData: "Loading..",
+      // stream: streamController.stream,
+      // builder: (context, snapshot) {
+
+      //   if(snapshot.hasError)
+      //   {
+      //     return Scaffold(body: Text("errorr"),);
+      //   }
+      
+      //   if(snapshot.connectionState==ConnectionState.waiting){
+
+      //     return Scaffold(body: 
+      //     Center(child: CircularProgressIndicator()),);
+
+      //   }
+      
+      //   return _swiper();
+     
+        
+      // })
+          
    
-        child: Swiper(
-                              autoplay: false,
-                              scrollDirection: Axis.horizontal,
-                              itemCount: newsList.length,
-                              loop: false,
-                              itemBuilder: (context, index) {
-                                return newsContainerUI(newsList[index]);
-                              },
-                            ),
+       
       )
 
 
     );
   }
 
-  Future<void> callNewsDetailsFrom() async {
-    try{
-      await apiProvider.getNews().then((value) {
- var data = value;
-  Map<String, dynamic> map = json.decode(data);
-  List<dynamic> data3 = map["articles"];
-
-      var loadNews =
-          data3.map((i) =>
-          
-           News.fromJson(i)).toList();
-           
-      newsList.clear();
-      for (var i in loadNews) {
-        setState(() {
-          newsList.add(i);
-           print(i);
-        });
-      }
-      });
-    }catch(error){
-      print("error:$error");
-    } 
-  }
 
  newsContainerUI(News news)  {
     return Container(
@@ -161,63 +191,90 @@ bool loading=true;
         ),
     
 
-      // padding: const EdgeInsets.symmetric(horizontal: 22.0),
-      //         child: Stack(
-          
-                // children: [
-                //   Positioned(
-                //     child: Container(
-                //       height: 400,
-                //       width: 350,
-                //       child: Card(
-                        
-                //               semanticContainer: true,
-                //               clipBehavior: Clip.antiAliasWithSaveLayer,
-                //               child: Image.network(
-                //                 'https://placeimg.com/640/480/any',
-                //                 fit: BoxFit.fill,
-                //               ),
-                //               shape: RoundedRectangleBorder(
-                //                 borderRadius: BorderRadius.circular(10,),
-                //               ),
-                //               elevation: 5,
-                //             ),
-                //     ),
-      //             ), Positioned(
-      //                 top: 300,
-      //                 child: Container(
-      //                 width: 315,
-                      
-      //                 child: 
-                      // Card(child: Column(children: [
-                      //          Padding(
-                      //            padding: const EdgeInsets.all(8.0),
-
-                      //            child: Text("Header or the news",style: TextStyle(fontSize: 25,fontWeight: FontWeight.bold),textAlign: TextAlign.left,),
-                      //          ),
-                      //            Padding(
-                      //              padding: const EdgeInsets.all(8.0),
-                      //              child: Text("2020-03-05",style: TextStyle(fontSize: 14),),
-                      //            ),
-                      //              Padding(
-                      //                padding: const EdgeInsets.all(8.0),
-                      //                child: Text(" dtada is a a dtada is a a dtada is jgshgjkgaa a dtada is a a dtada is a a dtada is a a dtada is a a dtada is a a dtada is a a",style: TextStyle(),),
-                      //              )
-                    
-                    
-                      //        ],),
-                      //        shape: RoundedRectangleBorder(
-                      //          borderRadius: BorderRadius.circular(10,),
-                      //        ),
-                      //        elevation: 5,
-                      //      ),
-                          //  ),
-      //               ),
-      //           ],
-      //         )
     );
 
   }
+
+_getDataFromAPI() async {
+    try{
+      await apiProvider.getNews().then((value) {
+ var data = value;
+  Map<String, dynamic> map = json.decode(data);
+  List<dynamic> data3 = map["articles"];
+
+      var loadNews =
+
+          data3.map((i) =>
+          
+           News.fromJson(i)).toList();
+           
+      newsList.clear();
+      for (var i in loadNews) {
+        setState(() {
+          newsList.add(i);
+          
+        });
+      }
+    
+      });
+      streamController.sink.add(newsList);
+    
+   
+    }catch(error){
+      print("error:$error");
+    } 
+ 
+
+  }
+
+   _swiper() {
+    return Scaffold(
+      body: Container(
+        child: Swiper(
+                              autoplay: false,
+                              scrollDirection: Axis.horizontal,
+                              itemCount: newsList.length,
+                              loop: false,
+                              itemBuilder: (context, index) {
+                                return newsContainerUI(newsList[index]);
+                              },
+                            ),
+      ),
+    );
+
+  }
+
+Future<List> getFuture_Value() async {
+
+   try{
+      await apiProvider.getNews().then((value) {
+ var data = value;
+  Map<String, dynamic> map = json.decode(data);
+  List<dynamic> data3 = map["articles"];
+
+      var loadNews =
+
+          data3.map((i) =>
+          
+           News.fromJson(i)).toList();
+           
+      newsList.clear();
+      for (var i in loadNews) {
+        setState(() {
+          newsList.add(i);
+          
+        });
+      }
+    
+      });
+    
+   
+    }catch(error){
+      print("error:$error");
+    } 
+
+  return newsList;
+}
   
 }
 
